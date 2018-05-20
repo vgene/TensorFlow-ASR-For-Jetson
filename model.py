@@ -1,22 +1,28 @@
+from __future__ import print_function, division, abosolute_import
+
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn.python.ops import cudnn_rnn_ops
 
-class RNNModel(object):
+class Encoder(object):
     """docstring for RNNModel"""
     def __init__(self,
             use_cudnn = True,
             num_layers = 2,
             num_units = 256,
-
+            num_feature = 39,
+            keep_prob = 1.0,
+            using_conv = False,
             ):
         super(RNNModel, self).__init__()
         # Configurations
         self.use_cudnn = use_cudnn
         self.num_layers = num_layers
-        self.num_units = args.num_units
+        self.num_units = num_units
         # self.batch_size = args.batch_size
-        self.num_feature = args.num_feature
-        self.keep_prob = args.keep_prob
+        self.num_feature = num_feature
+        self.keep_prob = keep_prob
+
+        self.using_conv = using_conv
 
     def build_graph(self):
         self.input = self.build_input()
@@ -35,6 +41,8 @@ class RNNModel(object):
             self.seq_lens = tf.placeholder(tf.int32, shape=[None], name='seq_lens')
 
             self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
+
+        if self.using_conv:
 
         # Start building RNN
         with tf.name_scope("RNN"):

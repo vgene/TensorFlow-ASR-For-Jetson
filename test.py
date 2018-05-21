@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn
-from tensorflow.python.ops import variables
+from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn # use instead of op
+from tensorflow.python.ops import variables # use to initialize
 
 def test():
     inputs = tf.placeholder(tf.float32, shape=[None, None, 10], name='inputs')

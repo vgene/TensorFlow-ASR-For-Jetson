@@ -1,21 +1,21 @@
 from __future__ import print_function, division, abosolute_import
 
 import tensorflow as tf
-from tensorflow.contrib.cudnn_rnn.python.ops import cudnn_rnn_ops
-from tensorflow.contrib.rnn.python.ops import lstm_ops
+from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn
+#from tensorflow.contrib.rnn.python.layers import
 
 class RNNModel(object):
-    """RNNModel
-
-    """
+    """RNNModel"""
     def __init__(self,
-            use_cudnn = True,
-            num_layers = 2,
-            num_units = 256,
-            num_feature = 39,
-            keep_prob = 1.0,
-            using_conv = False,
-            is_training = True
+                 use_cudnn = True,
+                 num_layers = 2,
+                 num_units = 256,
+                 num_feature = 39,
+                 keep_prob = 1.0,
+                 using_conv = False,
+                 is_training = True,
+                 time_major = True,
+                 num_classes = 28
             ):
         super(RNNModel, self).__init__()
         # Configurations
@@ -26,11 +26,11 @@ class RNNModel(object):
         self.num_feature = num_feature # Feature input of LSTM
         self.keep_prob = keep_prob # Dropout keep probability
         self.using_conv = using_conv # Whether use convolution layer to preprocess feature
-        self.is_training = is_training
+        self.is_training = is_training # Determine training or inference
+        self.time_major = time_major # Determine whether using time as first dimension
+        self.num_classes = num_classes+1
 
     def build_graph(self):
-        self.input = self.build_input()
-
         # Start building inputs
         # inputs: [time_len, batch_size, input_size]
         with tf.name_scope("Inputs"):
@@ -44,7 +44,10 @@ class RNNModel(object):
 
             self.seq_lens = tf.placeholder(tf.int32, shape=[None], name='seq_lens')
 
-            self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
+            self.learning_rate = tf.placeholder(tf.int32, name='learning_rate')
+
+            # use __init__ variables instead
+            # self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
         # Convolution Preprocessing
         # if self.using_conv:
@@ -56,13 +59,16 @@ class RNNModel(object):
             # TODO: add other LSTM categories
             # Only use cudnnLSTM for now
             if self.use_cudnn:
-                self.lstm = cudnn_rnn_ops.CudnnLSTM(
+                self.lstm = cudnn_rnn.CudnnLSTM(
                         num_layers = self.num_layers,
                         num_units = self.num_units,
                         direction = 'bidirectional',
                         dropout = 1.0 - self.keep_prob,
                         name = 'cudnn_lstm')
-                outputs, states = self.lstm(inputs, training=self.is_training)
+
+                # build first(optional)
+                self.lstm = self.lstm.build([None, None, self.num_feature])
+                self.outputs, self.states = self.lstm(self.inputs, training=self.is_training)
             # else:
             #     # CudnnCompatibleLSTMCell
             #     self.lstm = cud
@@ -71,11 +77,10 @@ class RNNModel(object):
             # outputs: [time_len, batch_size, num_dirs * num_units]
             # states: a tuple of tensor(s) [num_layers * num_dirs, batch_size, num_units]
 
-            self.encoder_outputs = outputs
+            self.encoder_outputs = self.outputs
 
         # Start building fully connected layers, with bottlenneck and FC
         with tf.name_scope("Fully_Connected"):
-
             batch_size = tf.shape(self.inputs)[0]
             max_time = tf.shape(self.inputs)[1]
             output_dim = self.encoder_outputs.shape.as_list()[-1]
@@ -83,16 +88,16 @@ class RNNModel(object):
             outputs_2d = tf.reshape(
                 self.encoder_outputs, shape=[batch_size * max_time, output_dim])
 
-            if self.bottleneck_dim is not None and self.bottleneck_dim != 0:
-                with tf.variable_scope('bottleneck') as scope:
-                    outputs_2d = tf.contrib.layers.fully_connected(
-                        outputs_2d,
-                        num_outputs=self.bottleneck_dim,
-                        activation_fn=tf.nn.relu)
+            # if self.bottleneck_dim is not None and self.bottleneck_dim != 0:
+            #     with tf.variable_scope('bottleneck') as scope:
+            #         outputs_2d = tf.contrib.layers.fully_connected(
+            #             outputs_2d,
+            #             num_outputs=self.bottleneck_dim,
+            #             activation_fn=tf.nn.relu)
 
-                # Dropout for the hidden-output connections
-                outputs_2d = tf.nn.dropout(
-                    outputs_2d, keep_prob, name='dropout_bottleneck')
+            #     # Dropout for the hidden-output connections
+            #     outputs_2d = tf.nn.dropout(
+            #         outputs_2d, keep_prob, name='dropout_bottleneck')
 
             with tf.variable_scope('output') as scope:
                 logits_2d = tf.contrib.layers.fully_connected(
@@ -115,7 +120,7 @@ class RNNModel(object):
             self.logits = logits
 
         # Start building ctc loss
-        #TODO: Could add weight decay policy here
+        # TODO: Could add weight decay policy here
         with tf.name_scope("CTC_Loss"):
             # TODO: dig into all variables
             # labels: int32 SparseTensor.
@@ -126,15 +131,34 @@ class RNNModel(object):
 
             # return 1-D float tensor: [batch], neg-log prob
             ctc_losses = tf.nn.ctc_loss(
-                labels,
-                logits,
+                self.labels,
+                self.logits,
                 #tf.cast(inputs_seq_len, tf.int32),
-                inputs_seq_len,
+                self.seq_lens,
                 preprocess_collapse_repeated=False,
                 ctc_merge_repeated=True,
                 ignore_longer_outputs_than_inputs=True,
                 time_major=True)
             self.ctc_loss = tf.reduce_mean(ctc_losses, name='ctc_loss_mean')
+
+        # TODO: add more optimizers
+        with tf.name_scope("Optimizer"):
+            self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate, decay=0.9, momentum=0.0, epsilon=1e-10, use_locking=False, centered=False)
+
+        if self.is_training:
+            self.train_op = self.optimizer.minimize(self.ctc_loss)
+
+    def get_train_op(self):
+        # Please build_graph first!
+        return self.train_op
+
+    def get_loss(self):
+        # Please build_graph first!
+        return self.ctc_loss
+
+    def get_logits(self):
+        # Please build_graph first!
+        return self.logits
 
     def decode(self, logits, inputs_seq_len, beam_width=1):
         """Operation for decoding.

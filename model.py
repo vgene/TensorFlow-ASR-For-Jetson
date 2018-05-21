@@ -2,9 +2,12 @@ from __future__ import print_function, division, abosolute_import
 
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn.python.ops import cudnn_rnn_ops
+from tensorflow.contrib.rnn.python.ops import lstm_ops
 
-class Encoder(object):
-    """docstring for RNNModel"""
+class RNNModel(object):
+    """RNNModel
+
+    """
     def __init__(self,
             use_cudnn = True,
             num_layers = 2,
@@ -12,23 +15,24 @@ class Encoder(object):
             num_feature = 39,
             keep_prob = 1.0,
             using_conv = False,
+            is_training = True
             ):
         super(RNNModel, self).__init__()
         # Configurations
-        self.use_cudnn = use_cudnn
-        self.num_layers = num_layers
-        self.num_units = num_units
+        self.use_cudnn = use_cudnn # Using cudnnLSTM or not
+        self.num_layers = num_layers # Number of layers in LSTM
+        self.num_units = num_units # Number of units in one layer of LSTM
         # self.batch_size = args.batch_size
-        self.num_feature = num_feature
-        self.keep_prob = keep_prob
-
-        self.using_conv = using_conv
+        self.num_feature = num_feature # Feature input of LSTM
+        self.keep_prob = keep_prob # Dropout keep probability
+        self.using_conv = using_conv # Whether use convolution layer to preprocess feature
+        self.is_training = is_training
 
     def build_graph(self):
         self.input = self.build_input()
 
         # Start building inputs
-        # inputs: [batch_size, time_len, input_size]
+        # inputs: [time_len, batch_size, input_size]
         with tf.name_scope("Inputs"):
             self.inputs = tf.placeholder(tf.float32,
                                shape=[None, None, self.num_feature],
@@ -42,28 +46,42 @@ class Encoder(object):
 
             self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
-        if self.using_conv:
+        # Convolution Preprocessing
+        # if self.using_conv:
+        #     with tf.name_scope("Convolution"):
+        #         self.conv = tf.nn.conv2d()
 
         # Start building RNN
         with tf.name_scope("RNN"):
             # TODO: add other LSTM categories
             # Only use cudnnLSTM for now
-            self.lstm = cudnn_rnn_ops.CudnnLSTM(
-                    num_layers = self.num_layers,
-                    num_units = self.num_units,
-                    direction = 'bidirectional',
-                    dropout = 1.0 - self.keep_prob,
-                    name = 'cudnn_lstm')
+            if self.use_cudnn:
+                self.lstm = cudnn_rnn_ops.CudnnLSTM(
+                        num_layers = self.num_layers,
+                        num_units = self.num_units,
+                        direction = 'bidirectional',
+                        dropout = 1.0 - self.keep_prob,
+                        name = 'cudnn_lstm')
+                outputs, states = self.lstm(inputs, training=self.is_training)
+            # else:
+            #     # CudnnCompatibleLSTMCell
+            #     self.lstm = cud
 
+            # input: [time_len, batch_size, input_size]
             # outputs: [time_len, batch_size, num_dirs * num_units]
             # states: a tuple of tensor(s) [num_layers * num_dirs, batch_size, num_units]
-            outputs, states = self.lstm(inputs, )
+
+            self.encoder_outputs = outputs
 
         # Start building fully connected layers, with bottlenneck and FC
         with tf.name_scope("Fully_Connected"):
-            output_dim = encoder_outputs.shape.as_list()[-1]
+
+            batch_size = tf.shape(self.inputs)[0]
+            max_time = tf.shape(self.inputs)[1]
+            output_dim = self.encoder_outputs.shape.as_list()[-1]
+
             outputs_2d = tf.reshape(
-                encoder_outputs, shape=[batch_size * max_time, output_dim])
+                self.encoder_outputs, shape=[batch_size * max_time, output_dim])
 
             if self.bottleneck_dim is not None and self.bottleneck_dim != 0:
                 with tf.variable_scope('bottleneck') as scope:
@@ -100,6 +118,13 @@ class Encoder(object):
         #TODO: Could add weight decay policy here
         with tf.name_scope("CTC_Loss"):
             # TODO: dig into all variables
+            # labels: int32 SparseTensor.
+            #         labels.indices[i, :] == [b, t] means labels.values[i] stores the id for (batch b, time t).
+            #         labels.values[i] must take on values in [0, num_labels)
+            # logits: 3-D float Tensor [max_time, batch_size, num_classes]
+            # inputs_seq_len: 1-D int32 vector, [batch_size]
+
+            # return 1-D float tensor: [batch], neg-log prob
             ctc_losses = tf.nn.ctc_loss(
                 labels,
                 logits,
@@ -111,7 +136,32 @@ class Encoder(object):
                 time_major=True)
             self.ctc_loss = tf.reduce_mean(ctc_losses, name='ctc_loss_mean')
 
-    def run_infer(self, inputs, initial_state):
+    def decode(self, logits, inputs_seq_len, beam_width=1):
+        """Operation for decoding.
+        Args:
+            logits: A tensor of size `[T, B, num_classes]`
+            inputs_seq_len: A tensor of size `[B]`
+            beam_width (int, optional): beam width for beam search.
+                1 disables beam search, which mean greedy decoding.
+        Return:
+            decode_op: A SparseTensor
+        """
+        assert isinstance(beam_width, int), "beam_width must be integer."
+        assert beam_width >= 1, "beam_width must be >= 1"
+
+        # inputs_seq_len = tf.cast(inputs_seq_len, tf.int32)
+
+        if beam_width == 1:
+            decoded, neg_sum_logits = tf.nn.ctc_greedy_decoder(
+                logits, inputs_seq_len)
+        else:
+            decoded, neg_sum_logits = tf.nn.ctc_beam_search_decoder(
+                logits, inputs_seq_len,
+                beam_width=beam_width)
+
+        decode_op = tf.to_int32(decoded[0])
+
+        return decode_op, neg_sum_logits
 
 
 

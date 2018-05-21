@@ -1,4 +1,4 @@
-from __future__ import print_function, division, abosolute_import
+from __future__ import print_function, division, absolute_import
 
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn
@@ -38,13 +38,13 @@ class RNNModel(object):
                                shape=[None, None, self.num_feature],
                                name='inputs')
 
-            self.labels = tf.SparseTensor(tf.placeholder(tf.int32, name='indices'),
+            self.labels = tf.SparseTensor(tf.placeholder(tf.int64, name='indices'),
                                 tf.placeholder(tf.int32, name='values'),
-                                tf.placeholder(tf.int32, name='shape'))
+                                tf.placeholder(tf.int64, name='shape'))
 
             self.seq_lens = tf.placeholder(tf.int32, shape=[None], name='seq_lens')
 
-            self.learning_rate = tf.placeholder(tf.int32, name='learning_rate')
+            self.learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 
             # use __init__ variables instead
             # self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
@@ -67,7 +67,7 @@ class RNNModel(object):
                         name = 'cudnn_lstm')
 
                 # build first(optional)
-                self.lstm = self.lstm.build([None, None, self.num_feature])
+                self.lstm.build([None, None, self.num_feature])
                 self.outputs, self.states = self.lstm(self.inputs, training=self.is_training)
             # else:
             #     # CudnnCompatibleLSTMCell

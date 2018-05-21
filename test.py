@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn
+from tensorflow.python.ops import variables
 
 def test():
     inputs = tf.placeholder(tf.float32, shape=[None, None, 10], name='inputs')
@@ -23,10 +24,10 @@ def test():
     outputs, states = lstm(inputs, training=True)
 
     with tf.Session() as sess:
-
+        sess.run(variables.global_variables_initializer())
         raw_inputs = range(180)
         raw_inputs = np.asarray(raw_inputs,dtype="float32", order=None).reshape([6,3,10])
-        outputs, states = sess.run([outputs, states], feed_dict={'inputs':inputs}, options=None, run_metadata=None)
+        outputs, states = sess.run([outputs, states], feed_dict={inputs:raw_inputs}, options=None, run_metadata=None)
         print(outputs)
 
 test()

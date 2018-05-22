@@ -17,16 +17,14 @@ def build_model(num_layers=1, num_units=128, num_feature=None, keep_prob=1.0):
     loss_op = model.get_loss()
     train_op = model.get_train_op()
 
-def train(model, batch_size=1, num_epoch=1, learning_rate=1e-3):
-    with tf.Session(target='', graph=None, config=None) as sess:
+def train(model, train_set, batch_size=1, num_epoch=1, learning_rate=1e-3):
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(graph=model.graph, config=config) as sess:
         sess.run(variables.global_variables_initializer())
 
         for epoch in range(num_epoch):
             loss_list = []
-
-            train_set = DataProvider(mode='train', batch_size=batch_size)
-            data_size = train_set.get_data_size()
-            print("Data ready! Data size: %d" % data_size)
 
             total_iter = int(data_size/batch_size)
             pbar = tqdm.tqdm(total=total_iter)
@@ -76,4 +74,8 @@ if __name__ == "__main__":
                         num_feature=120, #for fbank feature
                         keep_prob=0.95)
 
-    train(model, batch_size=64, num_epoch=20, learning_rate=1e-3)
+    train_set = DataProvider(mode='train', batch_size=batch_size)
+    data_size = train_set.get_data_size()
+    print("Data ready! Data size: %d" % data_size)
+
+    train(model, train_set, batch_size=64, num_epoch=20, learning_rate=1e-3)

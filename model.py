@@ -2,6 +2,7 @@ from __future__ import print_function, division, absolute_import
 
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn
+import warpctc_tensorflow
 #from tensorflow.contrib.rnn.python.layers import
 
 class RNNModel(object):
@@ -81,8 +82,8 @@ class RNNModel(object):
 
         # Start building fully connected layers, with bottlenneck and FC
         with tf.name_scope("Fully_Connected"):
-            batch_size = tf.shape(self.inputs)[0]
-            max_time = tf.shape(self.inputs)[1]
+            batch_size = tf.shape(self.inputs)[1]
+            max_time = tf.shape(self.inputs)[0]
             output_dim = self.encoder_outputs.shape.as_list()[-1]
 
             outputs_2d = tf.reshape(
@@ -118,6 +119,7 @@ class RNNModel(object):
                     logits = tf.transpose(logits, [1, 0, 2])
 
             self.logits = logits
+            #self.logits =tf.Print(self.logits, [tf.shape(self.logits)])
 
         # Start building ctc loss
         # TODO: Could add weight decay policy here

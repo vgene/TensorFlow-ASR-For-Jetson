@@ -1,3 +1,4 @@
+from __future__ import print_function, division, absolute_import
 import csv
 import numpy as np
 
@@ -10,7 +11,7 @@ def padInputs(inputs, seq_lens, batch_size):
         result[0:data.shape[0],idx,:] = data
     #print(result)
     return result
-    
+
 # Borrow from https://github.com/zzw922cn/Automatic_Speech_Recognition/
 def list2sparse(targetList):
     indices = []
@@ -34,7 +35,7 @@ class DataProvider(object):
             self.csv_path = "/data/ASR/corpus/librispeech/dataset/numpy/100h/dev_clean/character.csv"
         if mode == 'test':
             self.csv_path = "/data/ASR/corpus/librispeech/dataset/numpy/100h/test_clean/character.csv"
-        self.batch_size = batch_size 
+        self.batch_size = batch_size
 
         # read csv file
         lines = []

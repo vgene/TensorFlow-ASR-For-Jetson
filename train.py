@@ -1,28 +1,23 @@
 from __future__ import print_function, division, absolute_import
-import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops import variables # use to initialize
-from model import RNNModel
-from data_provider import DataProvider
 from timeit import default_timer as timer
 import tqdm
+from model import RNNModel
+from data_provider import DataProvider
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+def build_model(num_layers=1, num_units=128, num_feature=None, keep_prob=1.0):
+    if not num_feature:
+        print("Please determine number of feature")
 
-batch_size = 64
-num_epoch = 20
+    model = RNNModel(num_layers=num_layers, num_units=num_units,
+                     num_feature=num_feature, keep_prob=keep_prob, is_training=True)
+    model.build_graph()
+    loss_op = model.get_loss()
+    train_op = model.get_train_op()
 
-num_layers = 2
-num_units = 256
-num_feature = 120
-
-model = RNNModel(num_layers=num_layers, num_units=num_units, num_feature=num_feature, keep_prob=0.95, is_training=True)
-model.build_graph()
-loss_op = model.get_loss()
-train_op = model.get_train_op()
-
-def train():
+def train(model, batch_size=1, num_epoch=1, learning_rate=1e-3):
     with tf.Session(target='', graph=None, config=None) as sess:
         sess.run(variables.global_variables_initializer())
 
@@ -39,7 +34,7 @@ def train():
 
             while True:
                 try:
-                    iteration += 1 
+                    iteration += 1
                     #start_time = timer()
                     inputs, labels, seq_lens, is_new_epoch =  train_set.next()
                     loss, _ = sess.run([loss_op, train_op], feed_dict={model.inputs : inputs,
@@ -75,4 +70,10 @@ def train():
             print("Epoch %d: average loss is %f" % (epoch, avg_loss))
 
 if __name__ == "__main__":
-    train()
+    # model parameters
+    model = build_model(num_layers=2,
+                        num_units=256,
+                        num_feature=120, #for fbank feature
+                        keep_prob=0.95)
+
+    train(model, batch_size=64, num_epoch=20, learning_rate=1e-3)

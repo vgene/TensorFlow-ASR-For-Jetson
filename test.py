@@ -1,3 +1,4 @@
+from __future__ import print_function, division, absolute_import
 import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.cudnn_rnn.python.layers import cudnn_rnn # use instead of op

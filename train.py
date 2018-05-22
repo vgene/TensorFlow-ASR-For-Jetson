@@ -30,13 +30,13 @@ with tf.Session(target='', graph=None, config=None) as sess:
         train_set = DataProvider('train') # under implementation
 
         while:
-    	 	inputs, labels, seq_lens, is_new_epoch =  train_set.next()
+            inputs, labels, seq_lens, is_new_epoch =  train_set.next()
             loss, _ = sess.run([loss_op, train_op], feed_dict={model.inputs : inputs,
                                                         model.labels : labels,
                                                         model.seq_lens : seq_lens,
                                                         model.learning_rate : 0.001})
-    	 	if is_new_epoch:
-    	 		break
+            if is_new_epoch:
+                break
         loss_list.append(loss)
         print(loss)
 

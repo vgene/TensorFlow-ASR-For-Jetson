@@ -14,7 +14,7 @@ num_epoch = 20
 
 num_layers = 2
 num_units = 256
-num_feature = 120 # or 29? including blank label?
+num_feature = 120
 
 model = RNNModel(num_layers=num_layers, num_units=num_units, num_feature=num_feature, keep_prob=0.95, is_training=True)
 model.build_graph()
@@ -22,33 +22,36 @@ loss_op = model.get_loss()
 train_op = model.get_train_op()
 
 with tf.Session(target='', graph=None, config=None) as sess:
-        sess.run(variables.global_variables_initializer())
+    sess.run(variables.global_variables_initializer())
 
-        for epoch in range(num_epoch):
-                loss_list = []
+    for epoch in range(num_epoch):
+        loss_list = []
 
-                train_set = DataProvider('training') # under implementation
+        train_set = DataProvider('train') # under implementation
 
-                inputs, labels, seq_lens = train_set.next()
-                loss, _ = sess.run([loss_op, train_op], feed_dict={model.inputs : inputs,
-                                                                model.labels : labels,
-                                                                model.seq_lens : seq_lens,
-                                                                model.learning_rate : 0.001})
-                loss_list.append(loss)
-                print(loss)
+        while:
+    	 	inputs, labels, seq_lens, is_new_epoch =  train_set.next()
+            loss, _ = sess.run([loss_op, train_op], feed_dict={model.inputs : inputs,
+                                                        model.labels : labels,
+                                                        model.seq_lens : seq_lens,
+                                                        model.learning_rate : 0.001})
+    	 	if is_new_epoch:
+    	 		break
+        loss_list.append(loss)
+        print(loss)
 
 
-                '''
-                for inputs, labels, seq_lens in train_set.next():
-                        loss, _ = sess.run([loss, train_op], feed_dict={model.inputs = inputs,
-                                                                          model.labels = labels,
-                                                                          model.seq_lens = seq_lens
-                                                                          model.learning_rate = 1e-3})
-                        loss_list.append(loss)
-                        print(loss)
-                '''
+        '''
+        for inputs, labels, seq_lens in train_set.next():
+            loss, _ = sess.run([loss, train_op], feed_dict={model.inputs = inputs,
+                                                              model.labels = labels,
+                                                              model.seq_lens = seq_lens
+                                                              model.learning_rate = 1e-3})
+            loss_list.append(loss)
+            print(loss)
+        '''
 
-                avg_loss = np.mean(loss_list)
+        avg_loss = np.mean(loss_list)
 
-                print("Epoch %d: average loss is %f" % (epoch, avg_loss))
+        print("Epoch %d: average loss is %f" % (epoch, avg_loss))
 

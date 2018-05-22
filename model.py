@@ -28,7 +28,7 @@ class RNNModel(object):
         self.using_conv = using_conv # Whether use convolution layer to preprocess feature
         self.is_training = is_training # Determine training or inference
         self.time_major = time_major # Determine whether using time as first dimension
-        self.num_classes = num_classes+1
+        self.num_classes = num_classes+1 # Add one blank (TODO: as 0 or last one?)
 
     def build_graph(self):
         # Start building inputs

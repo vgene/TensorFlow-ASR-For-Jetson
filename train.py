@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow.python.ops import variables # use to initialize
 from model import RNNModel
 from data_provider import DataProvider
+import warpctc_tensorflow
 import tqdm
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'

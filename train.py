@@ -14,10 +14,13 @@ def build_model(num_layers=1, num_units=128, num_feature=None, keep_prob=1.0):
     model = RNNModel(num_layers=num_layers, num_units=num_units,
                      num_feature=num_feature, keep_prob=keep_prob, is_training=True)
     model.build_graph()
+
+    return model
+
+def train(model, train_set, batch_size=1, num_epoch=1, learning_rate=1e-3):
     loss_op = model.get_loss()
     train_op = model.get_train_op()
 
-def train(model, train_set, batch_size=1, num_epoch=1, learning_rate=1e-3):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(graph=model.graph, config=config) as sess:
@@ -54,20 +57,11 @@ def train(model, train_set, batch_size=1, num_epoch=1, learning_rate=1e-3):
                     print("Keyboard interrupt detected, gracefully exiting")
                     return
 
-            '''
-            for inputs, labels, seq_lens in train_set.next():
-                loss, _ = sess.run([loss, train_op], feed_dict={model.inputs = inputs,
-                                                                  model.labels = labels,
-                                                                  model.seq_lens = seq_lens
-                                                                  model.learning_rate = 1e-3})
-                loss_list.append(loss)
-                print(loss)
-            '''
-
             avg_loss = np.mean(loss_list)
             print("Epoch %d: average loss is %f" % (epoch, avg_loss))
 
 if __name__ == "__main__":
+    batch_size = 64
     # model parameters
     model = build_model(num_layers=2,
                         num_units=256,
@@ -78,4 +72,4 @@ if __name__ == "__main__":
     data_size = train_set.get_data_size()
     print("Data ready! Data size: %d" % data_size)
 
-    train(model, train_set, batch_size=64, num_epoch=20, learning_rate=1e-3)
+    train(model, train_set, batch_size=batch_size, num_epoch=20, learning_rate=1e-3)
